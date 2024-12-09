@@ -67,7 +67,6 @@ func WithURL(u *url.URL) ConnectOption {
 		switch u.Scheme {
 		case "wss":
 			c.TLS = true
-			c.ServerName = u.Host
 		default:
 			c.TLS = false
 		}
@@ -192,27 +191,27 @@ func connect(ctx context.Context, cfg *splitedConnectDialConfig) (*websocket.Con
 		return nil, err
 	}
 
-	dialConn, err := dialWithTimeout(ctx, cfg.Dialer, cfg.splitAddr, cfg.splitPort)
-	if err != nil {
-		return nil, err
-	}
-
+	var conn net.Conn
 	if cfg.TLS {
-		config := &tls.Config{
+		tlsConn, err := tls.DialWithDialer(cfg.Dialer, "tcp", fmt.Sprintf("%s:%s", cfg.splitAddr, cfg.splitPort), &tls.Config{
 			InsecureSkipVerify: cfg.Insecure,
 			ServerName:         cfg.ServerName,
-		}
-		tlsConn := tls.Client(dialConn, config)
-		if err := tlsConn.HandshakeContext(ctx); err != nil {
-			dialConn.Close()
+		})
+		if err != nil {
 			return nil, err
 		}
-		dialConn = tlsConn
+		conn = tlsConn
+	} else {
+		dialConn, err := dialWithTimeout(ctx, cfg.Dialer, cfg.splitAddr, cfg.splitPort)
+		if err != nil {
+			return nil, err
+		}
+		conn = dialConn
 	}
 
-	ws, err := websocket.NewClient(wsConfig, dialConn)
+	ws, err := websocket.NewClient(wsConfig, conn)
 	if err != nil {
-		dialConn.Close()
+		conn.Close()
 		return nil, err
 	}
 	return ws, nil
