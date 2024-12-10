@@ -98,6 +98,12 @@ func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	h.wsServer.ServeHTTP(w, req)
 }
 
+var pingCodec = websocket.Codec{
+	Marshal: func(_ any) ([]byte, byte, error) {
+		return nil, websocket.PingFrame, nil
+	},
+}
+
 func (h *Handler) handleWebSocket(ws *websocket.Conn) {
 	defer ws.Close()
 
@@ -107,17 +113,12 @@ func (h *Handler) handleWebSocket(ws *websocket.Conn) {
 	defer close(exit)
 
 	go func() {
-		codec := websocket.Codec{
-			Marshal: func(_ any) ([]byte, byte, error) {
-				return nil, websocket.PingFrame, nil
-			},
-		}
 		ticker := time.NewTicker(time.Second * 30)
 		defer ticker.Stop()
 		for {
 			select {
 			case <-ticker.C:
-				err := codec.Send(ws, nil)
+				err := pingCodec.Send(ws, nil)
 				if err == nil {
 					continue
 				}
