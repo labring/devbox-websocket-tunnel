@@ -91,10 +91,15 @@ func WithPath(path string) ConnectOption {
 	}
 }
 
-func WithDialTLS(serverName string, insecure bool) ConnectOption {
+func WithDialTLS(serverName string) ConnectOption {
 	return func(c *ConnectConfig) {
 		c.TLS = true
 		c.ServerName = serverName
+	}
+}
+
+func WithInsecure(insecure bool) ConnectOption {
+	return func(c *ConnectConfig) {
 		c.Insecure = insecure
 	}
 }

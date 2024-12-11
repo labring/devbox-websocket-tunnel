@@ -7,10 +7,14 @@ import (
 	"os"
 )
 
-var target string
+var (
+	target   string
+	insecure bool
+)
 
 func init() {
 	flag.StringVar(&target, "target", "ws://127.0.0.1:8081/ws", "target url")
+	flag.BoolVar(&insecure, "insecure", false, "tls insecure")
 }
 
 func main() {
@@ -22,6 +26,7 @@ func main() {
 	}
 	conn, err := NewDialer(
 		WithURL(u),
+		WithInsecure(insecure),
 	).Dial()
 	if err != nil {
 		panic(err)
