@@ -45,6 +45,7 @@ jobs:
 
       - name: Go Build
         run: |
+          export CGO_ENABLED=0
           export GOOS=${{ matrix.targets.OS }}
           export GOARCH=${{ matrix.targets.ARCH }}
           mkdir -p dist

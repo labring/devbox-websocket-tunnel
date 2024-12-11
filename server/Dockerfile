@@ -2,7 +2,9 @@ FROM golang:1.23-alpine AS builder
 
 COPY ./ ./
 
-RUN go build -trimpath -ldflags="-s -w" -o /wst-server ./server
+ENV CGO_ENABLED=0
+
+RUN go build -trimpath -ldflags="-s -w" -o /wst-server .
 
 FROM alpine:latest
 
