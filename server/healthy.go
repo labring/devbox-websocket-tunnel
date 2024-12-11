@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
@@ -18,7 +19,7 @@ var (
 
 var ActiveNum int32 = 0
 
-func HealthyCheck() {
+func HealthyCheck(ctx context.Context) {
 	shutdownDuration, _ := time.ParseDuration(interval)
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -35,6 +36,8 @@ func HealthyCheck() {
 			} else {
 				zeroDuration = 0
 			}
+		case <-ctx.Done():
+			return
 		}
 	}
 }
