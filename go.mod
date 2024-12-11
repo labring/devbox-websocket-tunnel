@@ -1,5 +1,3 @@
-module github.com/zijiren233/gwst
+module github.com/labring/devbox-websocket-tunnel
 
 go 1.22.0
-
-require golang.org/x/net v0.31.0
