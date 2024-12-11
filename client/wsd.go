@@ -65,7 +65,7 @@ func WithURL(u *url.URL) ConnectOption {
 		c.Addr = u.Host
 		c.Path = u.Path
 		switch u.Scheme {
-		case "wss":
+		case "wss", "https":
 			c.TLS = true
 		default:
 			c.TLS = false
