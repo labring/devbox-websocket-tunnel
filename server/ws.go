@@ -9,6 +9,7 @@ import (
 )
 
 type Server struct {
+	listener          net.Listener
 	listenErr         error
 	shutdowned        chan struct{}
 	onListened        chan struct{}
@@ -21,9 +22,20 @@ type Server struct {
 
 type ServerOption func(*Server)
 
-func NewServer(listenAddr, path string, wsHandler *Handler, opts ...ServerOption) *Server {
+func WithListener(listener net.Listener) ServerOption {
+	return func(ps *Server) {
+		ps.listener = listener
+	}
+}
+
+func WithListenAddr(listenAddr string) ServerOption {
+	return func(ps *Server) {
+		ps.listenAddr = listenAddr
+	}
+}
+
+func NewServer(path string, wsHandler *Handler, opts ...ServerOption) *Server {
 	ps := &Server{
-		listenAddr: listenAddr,
 		wsHandler:  wsHandler,
 		path:       path,
 		onListened: make(chan struct{}),
@@ -43,25 +55,13 @@ func (ps *Server) closeOnListened() {
 	})
 }
 
-func (ps *Server) OnListened() <-chan struct{} {
-	return ps.onListened
-}
-
-func (ps *Server) ListenErr() error {
+func (ps *Server) WaitListen() error {
+	<-ps.onListened
 	return ps.listenErr
 }
 
-func (ps *Server) Shutdowned() <-chan struct{} {
-	return ps.shutdowned
-}
-
-func (ps *Server) ShutdownedBool() bool {
-	select {
-	case <-ps.shutdowned:
-		return true
-	default:
-		return false
-	}
+func (ps *Server) WaitShutdown() {
+	<-ps.shutdowned
 }
 
 func (ps *Server) Serve() error {
@@ -73,12 +73,19 @@ func (ps *Server) Serve() error {
 	return ps.listenAndServe(server)
 }
 
-func (ps *Server) listenAndServe(server *http.Server) error {
+func (ps *Server) getListener() (net.Listener, error) {
+	if ps.listener != nil {
+		return ps.listener, nil
+	}
 	addr := ps.listenAddr
 	if addr == "" {
 		addr = ":http"
 	}
-	ln, err := net.Listen("tcp", addr)
+	return net.Listen("tcp", addr)
+}
+
+func (ps *Server) listenAndServe(server *http.Server) error {
+	ln, err := ps.getListener()
 	if err != nil {
 		ps.listenErr = err
 		return err
@@ -100,17 +107,20 @@ func (ps *Server) Server() *http.Server {
 			ReadHeaderTimeout: time.Second * 5,
 			MaxHeaderBytes:    16 * 1024,
 		}
+		ps.server.RegisterOnShutdown(func() {
+			ps.wsHandler.Close()
+		})
 	}
 	return ps.server
 }
 
 func (ps *Server) Close() error {
-	timeoutCtx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
-	defer cancel()
-	return ps.Shutdown(timeoutCtx)
+	defer ps.closeOnListened()
+	return ps.server.Close()
 }
 
 func (ps *Server) Shutdown(ctx context.Context) error {
-	ps.closeOnListened()
+	defer ps.closeOnListened()
+	defer ps.wsHandler.Wait()
 	return ps.server.Shutdown(ctx)
 }
