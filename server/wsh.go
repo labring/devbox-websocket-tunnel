@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/websocket"
@@ -95,7 +96,9 @@ func (h *Handler) putBuffer(buffer *[]byte) {
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	atomic.AddInt32(&ActiveNum, 1)
 	h.wsServer.ServeHTTP(w, req)
+	atomic.AddInt32(&ActiveNum, -1)
 }
 
 var pingCodec = websocket.Codec{
