@@ -273,11 +273,3 @@ func (wc *Dialer) DialContext(ctx context.Context, options ...ConnectOption) (ne
 func (wc *Dialer) Dial(options ...ConnectOption) (net.Conn, error) {
 	return wc.DialContext(context.Background(), options...)
 }
-
-func (wc *Dialer) DialTCP(options ...ConnectOption) (net.Conn, error) {
-	return wc.Dial(options...)
-}
-
-func (wc *Dialer) DialContextTCP(ctx context.Context, options ...ConnectOption) (net.Conn, error) {
-	return wc.DialContext(ctx, options...)
-}

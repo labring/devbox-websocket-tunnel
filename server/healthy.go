@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"sync/atomic"
 	"time"
 )
 
@@ -17,9 +16,11 @@ var (
 	jwtToken      = os.Getenv("JWT_TOKEN")
 )
 
-var ActiveNum int32 = 0
+type ActiveNum interface {
+	ActiveNum() int64
+}
 
-func HealthyCheck(ctx context.Context) {
+func HealthyCheck(ctx context.Context, handler ActiveNum) {
 	shutdownDuration, _ := time.ParseDuration(interval)
 	ticker := time.NewTicker(1 * time.Minute)
 	defer ticker.Stop()
@@ -28,7 +29,7 @@ func HealthyCheck(ctx context.Context) {
 	for {
 		select {
 		case <-ticker.C:
-			if atomic.LoadInt32(&ActiveNum) == 0 {
+			if handler.ActiveNum() == 0 {
 				zeroDuration += 1 * time.Minute
 				if zeroDuration >= shutdownDuration {
 					sendShutdownRequest()

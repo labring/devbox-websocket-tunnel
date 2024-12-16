@@ -42,8 +42,12 @@ type GetTargetFunc func(req *http.Request) (string, []string, error)
 type Handler struct {
 	bufferPool        *sync.Pool
 	wsServer          *websocket.Server
+	closeChan         chan struct{}
 	defaultTargetAddr string
+	connectionsWg     sync.WaitGroup
+	activeNum         int64
 	bufferSize        int
+	closeOnce         sync.Once
 }
 
 type HandlerOption func(*Handler)
@@ -65,6 +69,7 @@ func checkOrigin(config *websocket.Config, req *http.Request) (err error) {
 func NewHandler(targetAddr string, opts ...HandlerOption) *Handler {
 	h := &Handler{
 		defaultTargetAddr: targetAddr,
+		closeChan:         make(chan struct{}),
 	}
 
 	for _, opt := range opts {
@@ -95,10 +100,26 @@ func (h *Handler) putBuffer(buffer *[]byte) {
 	}
 }
 
+func (h *Handler) ActiveNum() int64 {
+	return atomic.LoadInt64(&h.activeNum)
+}
+
+func (h *Handler) addActiveNum() {
+	atomic.AddInt64(&h.activeNum, 1)
+}
+
+func (h *Handler) subActiveNum() {
+	atomic.AddInt64(&h.activeNum, -1)
+}
+
 func (h *Handler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	atomic.AddInt32(&ActiveNum, 1)
+	h.connectionsWg.Add(1)
+	defer h.connectionsWg.Done()
+
+	h.addActiveNum()
+	defer h.subActiveNum()
+
 	h.wsServer.ServeHTTP(w, req)
-	atomic.AddInt32(&ActiveNum, -1)
 }
 
 var pingCodec = websocket.Codec{
@@ -125,6 +146,9 @@ func (h *Handler) handleWebSocket(ws *websocket.Conn) {
 				if err == nil {
 					continue
 				}
+				_ = ws.Close()
+				return
+			case <-h.closeChan:
 				_ = ws.Close()
 				return
 			case <-exit:
@@ -196,4 +220,14 @@ func CopyBufferWithWriteTimeout(dst deadlineWriter, src io.Reader, buf []byte, t
 		}
 	}
 	return written, err
+}
+
+func (h *Handler) Close() {
+	h.closeOnce.Do(func() {
+		close(h.closeChan)
+	})
+}
+
+func (h *Handler) Wait() {
+	h.connectionsWg.Wait()
 }
