@@ -50,8 +50,8 @@ func sendShutdownRequest() {
 	}
 	jsonData, _ := json.Marshal(data)
 	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
-	defer resp.Body.Close()
 	if err != nil {
 		log.Println("error:fail to send shutdown request", err)
 	}
+	defer resp.Body.Close()
 }
