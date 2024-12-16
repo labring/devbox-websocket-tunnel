@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 )
 
@@ -15,21 +16,17 @@ var (
 )
 
 func main() {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer cancel()
 
-	// Listen for system signals to initiate graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
-
-	go func() {
-		<-sigChan
-		log.Println("Received shutdown signal")
-		cancel()
-	}()
+	var wg sync.WaitGroup
 
 	if flag == "true" {
-		go HealthyCheck(ctx)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			HealthyCheck(ctx)
+		}()
 	}
 
 	if listen == "" || target == "" {
@@ -49,4 +46,5 @@ func main() {
 
 	<-ctx.Done()
 	log.Println("Shutting down gracefully")
+	wg.Wait()
 }

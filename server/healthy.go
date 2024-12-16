@@ -49,7 +49,8 @@ func sendShutdownRequest() {
 		"jwt_token": jwtToken,
 	}
 	jsonData, _ := json.Marshal(data)
-	_, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	defer resp.Body.Close()
 	if err != nil {
 		log.Println("error:fail to send shutdown request", err)
 	}
