@@ -49,7 +49,7 @@ func main() {
 	)
 
 	go func() {
-		log.Println("Starting ws server")
+		log.Println("Started ws server")
 		err := server.Serve()
 		if err != nil {
 			log.Fatalf("Failed to ws serve: %v", err)
