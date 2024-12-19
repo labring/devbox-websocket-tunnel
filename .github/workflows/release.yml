@@ -1,17 +1,19 @@
-name: Build
+name: Release
 
 on:
   push:
+    branches:
+      - "**"
     tags:
-      - "v*"
-  workflow_dispatch:
+      - "v*.*.*"
+  pull_request:
 
 env:
   REGISTRY: ghcr.io
   IMAGE_NAME: ${{ github.repository }}
 
 jobs:
-  build-client:
+  release-client:
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -55,20 +57,27 @@ jobs:
             -o dist/wst-${{ matrix.targets.OS }}-${{ matrix.targets.ARCH }}${{ matrix.targets.EXT }} \
             ./client
 
+      - name: Upload Binaries
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.targets.OS }}-${{ matrix.targets.ARCH }}
+          path: dist/*
+
       - name: Release
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
-          prerelease: ${{ !startsWith(github.ref, 'refs/tags/') }}
+          prerelease: false
           append_body: false
           fail_on_unmatched_files: true
-          name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'Dev Build' }}
-          tag_name: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || 'dev' }}
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
           files: |
             dist/*
 
-  build-server:
+  release-server:
     runs-on: ubuntu-latest
 
     steps:
@@ -81,6 +90,7 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Log in to the Container registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@v1
         with:
           registry: ${{ env.REGISTRY }}
@@ -89,17 +99,27 @@ jobs:
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
-        uses: docker/metadata-action@v3
+        uses: docker/metadata-action@v5
         with:
           images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          flavor: |
+            latest=${{ startsWith(github.ref, 'refs/tags/') }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
 
       - name: Build and push
         id: docker_build
-        uses: docker/build-push-action@v5
+        uses: docker/build-push-action@v6
         with:
           context: server
-          push: true
           platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
 
