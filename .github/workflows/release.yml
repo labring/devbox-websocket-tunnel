@@ -64,7 +64,7 @@ jobs:
           path: dist/*
 
       - name: Release
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
