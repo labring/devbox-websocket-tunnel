@@ -72,8 +72,8 @@ jobs:
           prerelease: false
           append_body: false
           fail_on_unmatched_files: true
-          name: github.ref_name
-          tag_name: github.ref_name
+          name: ${{ github.ref_name }}
+          tag_name: ${{ github.ref_name }}
           files: |
             dist/*
 
